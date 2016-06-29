@@ -1,4 +1,11 @@
 ﻿  # -*- coding: utf-8 -*- 
+# data.py
+# Udacity.com -- "Data Wrangling with MongoDB"
+# OpenStreetMap Data Case Study
+#
+# Kai Wang
+# wangkai0112006@163.com
+
 """
 - Audits the OSMFILE and changes the variable 'mapping' to reflect the changes
     needed to fix the unexpected street types to the appropriate ones in the

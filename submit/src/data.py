@@ -1,12 +1,50 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
+# data.py
+# Udacity.com -- "Data Wrangling with MongoDB"
+# OpenStreetMap Data Case Study
+#
+# Kai Wang
+# wangkai0112006@163.com
 import xml.etree.cElementTree as ET
 import pprint
 import re
 import codecs
 import json
 from audit import *
+'''
+Transforms the shape of OpenStreetMap data (an OSM XML file) into a list of
+dictionaries with the following structure:
 
+{
+    "_id" : ObjectId("5771f919a87c63be39a3e6ea"),
+    "name" : "Legendale  Hotel Beijing",
+    "created" : {
+        "changeset" : "26004460",
+        "user" : "zacmccormick",
+        "version" : "2",
+        "uid" : "492311",
+        "timestamp" : "2014-10-11T14:07:38Z"
+    },
+    "type" : "node",
+    "pos" : [
+        39.913408,
+        116.412887
+    ],
+    "address" : {
+        "city" : "Beijing"
+    },
+    "tourism" : "hotel",
+    "id" : "675650771",
+    "internet_access" : "wlan"
+}
+
+process_map parses the map file, calls shape_element, and returns a dictionary
+containing the reshaped data for that element. A way to save the data to a file
+is provided, for use with mongoimport later on to import the shaped data into
+MongoDB. Before importing, additional data cleansing is done similar to that
+performed in audit.py.
+'''
 
 lower = re.compile(r'^([a-z]|_)*$')
 lower_colon = re.compile(r'^([a-z]|_)*:([a-z]|_)*$')
@@ -121,7 +159,10 @@ def process_subtags(element, node):
     return node
 
 def process_map(file_in, pretty = False):
-    # You do not need to change this file
+    """
+    Outputs a JSON file with the correct structure.
+    Returns the data as a list of dictionaries.
+    """
     file_out = "{0}.json".format(file_in)
     data = []
     with codecs.open(file_out, "w") as fo:

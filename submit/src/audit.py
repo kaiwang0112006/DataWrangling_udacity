@@ -1,4 +1,4 @@
-﻿# -*- coding: utf-8 -*- 
+﻿  # -*- coding: utf-8 -*- 
 """
 - Audits the OSMFILE and changes the variable 'mapping' to reflect the changes
     needed to fix the unexpected street types to the appropriate ones in the
@@ -32,69 +32,61 @@ def audit_street_type(street_types, street_name):
             street_types[street_type].add(street_name)
 
 def correct_street_type(street_name):
-    changed = 0
     street_name = street_name.strip()
     words = street_name.split()
-    newwords = ''
+    new_words = []
     # change street abbreviation to full name
     for w in words:
         if w in mapping:
-            newwords += mapping[w] + ' '
+            new_words.append(mapping[w])
         else:
-            newwords += w + ' '
-    if street_name != newwords[:-1]:
-        #print street_name + '=>' + newwords[:-1]
-        changed = 1
+            new_words.append(w)
+    new_street_name = ' '.join(new_words)
+    changed = (street_name != new_street_name)
 
-    return newwords[:-1], changed
+    return new_street_name, changed
 
 def correct_postcode(postcode):
     changed = 0
     if "-" in postcode:
-        return None,1
+        return None, 1
     else:
-        return postcode,0
+        return postcode, 0
     
 def correct_number(num):
     changed = 0
-    newnum = ''
+    new_num = ''
     if " / " in num:
-        newnum = foreachnum(num," / ")
+        new_num = for_each_num(num, " / ")
     elif ';' in num:
-        newnum = foreachnum(num,";")
-    elif "+8610-88087384" in num and "88086667" in num: #"+8610-88087384；88086667" which contain a unicode ';'
-        ewnum = foreachnum('+8610-88087384;88086667',";")
-    elif len(num.split('/')[0]) == (len(num)-1)/2:
-        newnum = foreachnum(num,"/")
+        new_num = for_each_num(num, ";")
+    elif "+8610-88087384" in num and "88086667" in num:  # "+8610-88087384；88086667" which contain a unicode ';'
+        ewnum = for_each_num('+8610-88087384;88086667', ";")
+    elif len(num.split('/')[0]) == (len(num) - 1) / 2:
+        new_num = for_each_num(num, "/")
     else:
-        newnum = purenum(num)
+        new_num = pure_num(num)
 
-    #print num + '=>' + newnum
-    if num == newnum:
-        return num, 0
+    # print num + '=>' + newnum
+    if num == new_num:
+        return num,False
     else:
-        return newnum, 1
+        return new_num, True
 
-def foreachnum(allnum,seq):
+def for_each_num(allnum, seq):
     r = ''
     for n in allnum.split(seq):
-        n = purenum(n)
-        r = r + n +','
+        n = pure_num(n)
+        r = r + n + ','
     r = r[:-1] 
     return r
 
-def purenum(num):
-    r = ''
-    for i in num:
-        try:
-            int(i)
-            r += i
-        except:
-            pass
+#get only the integers of a string, and standardize the header "86010" 
+def pure_num(num):
+    
+    r = re.sub('[^0-9]', '', num)
     if r[:4] == "8610":
-        r = "86010"+r[4:]
-    elif r[:5] == "86010":
-        r = "86010"+r[5:]
+        r = "86010" + r[4:]
     elif r[:2] == '00':
         r = r[2:]
         
@@ -103,7 +95,7 @@ def purenum(num):
 def audit(osmfile):
     osm_file = open(osmfile, "r")
     street_types = defaultdict(set)
-    audited = {'Overabbreviated':[],"wrongpostcode":[],"wrongnumber":[]}
+    audited = {'Overabbreviated':[], "wrongpostcode":[], "wrongnumber":[]}
     for event, elem in ET.iterparse(osm_file, events=("start",)):
 
         if elem.tag == "node" or elem.tag == "way":

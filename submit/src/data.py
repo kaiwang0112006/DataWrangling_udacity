@@ -22,10 +22,14 @@ def shape_element(element):
         for key in element.attrib.keys():
             val = element.attrib[key]
             node["type"] = element.tag
+            
+            # If key in CREATED list, store key-val under "created"
             if key in CREATED:
                 if not "created" in node.keys():
                     node["created"] = {}
                 node["created"][key] = val
+                
+            # Fetch coordinates 
             elif key == "lat" or key == "lon":
                 if not "pos" in node.keys():
                     node["pos"] = [0.0, 0.0]
@@ -37,11 +41,17 @@ def shape_element(element):
                 node["pos"] = new_pos
             else:
                 node[key] = val
+                
+             # Begin iterating over subtags
             for tag in element.iter("tag"):
                 tag_key = tag.attrib['k']
                 tag_val = tag.attrib['v']
+                
+                # Check for problem characters
                 if problemchars.match(tag_key):
                     continue
+                
+                # fix tag 'v' attribute of streetname and postcode
                 elif tag_key.startswith("addr:"):
                     if not "address" in node.keys():
                         node["address"] = {}
@@ -50,19 +60,26 @@ def shape_element(element):
                         continue
                     else:
                         if tag.attrib['k'] == "addr:street":
-                            v, c = correct_street_type(tag_val)
+                            fixed_v, change = correct_street_type(tag_val)
                         elif tag.attrib['k'] == "addr:postcode":
-                            v, c = correct_postcode(tag.attrib['v'])
+                            fixed_v, change = correct_postcode(tag.attrib['v'])
                         else:
-                            v = tag_val
-                        if v != None:
-                            node["address"][addr_key] = v
-
+                            fixed_v = tag_val
+                        if fixed_v != None:
+                            node["address"][addr_key] = fixed_v
+                
+                # fix fax and phone number
                 elif tag_key == "fax" or tag_key == "phone":
-                    v, c = correct_number(tag_val)
-                    node[tag_key] = v
+                    fixed_v, chang = correct_number(tag_val)
+                    node[tag_key] = fixed_v
+                    
+                #fix multiple tag_key confusing. These two tag_key in the list have same meaing, 
+                #so just keep the latter one in the list and change the former to the latter
                 elif tag_key in [ u'应急避难场所疏散人数万人',u'应急避难场所疏散人口万人']:
                     node[u'应急避难场所疏散人口万人'] = tag_val
+                    
+                # '疏散人数' and '疏散人数（万）' are two similar tag_key. Inthis way below, we change '疏散人数' to '疏散人数（万）'
+                # by doing some math.
                 elif tag_key == u'疏散人数':
                     node[u'疏散人数（万）'] = str(round(float(tag_val.split()[0].replace(',',''))/10000,2))
                 elif tag_val != None:

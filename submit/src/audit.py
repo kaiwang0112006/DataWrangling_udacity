@@ -23,15 +23,10 @@ mapping = { "St": "Street",
             "St.": "Street"
             }
 
-
-def audit_street_type(street_types, street_name):
-    m = street_type_re.search(street_name)
-    if m:
-        street_type = m.group()
-        if street_type not in expected:
-            street_types[street_type].add(street_name)
-
 def correct_street_type(street_name):
+    """
+    Correct potentially problematic street names and return both correct name and whether it's been corrected
+    """
     street_name = street_name.strip()
     words = street_name.split()
     new_words = []

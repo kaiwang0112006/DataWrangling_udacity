@@ -16,74 +16,24 @@ CREATED = [ "version", "changeset", "timestamp", "user", "uid"]
 
 
 def shape_element(element):
+    """
+    Takes an XML tag as input and returns a cleaned and reshaped
+    dictionary for JSON ouput. If the element contains an abbreviated
+    street name, it returns with an updated full street name.
+    """
     node = {}
     # you should process only 2 types of top level tags: "node" and "way"
     if element.tag == "node" or element.tag == "way" :
         for key in element.attrib.keys():
             val = element.attrib[key]
             node["type"] = element.tag
+
+            # deal with top-level tags  
+            node = process_toptags(key,val, node)
             
-            # If key in CREATED list, store key-val under "created"
-            if key in CREATED:
-                if not "created" in node.keys():
-                    node["created"] = {}
-                node["created"][key] = val
-                
-            # Fetch coordinates 
-            elif key == "lat" or key == "lon":
-                if not "pos" in node.keys():
-                    node["pos"] = [0.0, 0.0]
-                old_pos = node["pos"]
-                if key == "lat":
-                    new_pos = [float(val), old_pos[1]]
-                else:
-                    new_pos = [old_pos[0], float(val)]
-                node["pos"] = new_pos
-            else:
-                node[key] = val
-                
-             # Begin iterating over subtags
-            for tag in element.iter("tag"):
-                tag_key = tag.attrib['k']
-                tag_val = tag.attrib['v']
-                
-                # Check for problem characters
-                if problemchars.match(tag_key):
-                    continue
-                
-                # fix tag 'v' attribute of streetname and postcode
-                elif tag_key.startswith("addr:"):
-                    if not "address" in node.keys():
-                        node["address"] = {}
-                    addr_key = tag.attrib['k'][len("addr:") : ]
-                    if lower_colon.match(addr_key):
-                        continue
-                    else:
-                        if tag.attrib['k'] == "addr:street":
-                            fixed_v, change = correct_street_type(tag_val)
-                        elif tag.attrib['k'] == "addr:postcode":
-                            fixed_v, change = correct_postcode(tag.attrib['v'])
-                        else:
-                            fixed_v = tag_val
-                        if fixed_v != None:
-                            node["address"][addr_key] = fixed_v
-                
-                # fix fax and phone number
-                elif tag_key == "fax" or tag_key == "phone":
-                    fixed_v, chang = correct_number(tag_val)
-                    node[tag_key] = fixed_v
-                    
-                #fix multiple tag_key confusing. These two tag_key in the list have same meaing, 
-                #so just keep the latter one in the list and change the former to the latter
-                elif tag_key in [ u'应急避难场所疏散人数万人',u'应急避难场所疏散人口万人']:
-                    node[u'应急避难场所疏散人口万人'] = tag_val
-                    
-                # '疏散人数' and '疏散人数（万）' are two similar tag_key. Inthis way below, we change '疏散人数' to '疏散人数（万）'
-                # by doing some math.
-                elif tag_key == u'疏散人数':
-                    node[u'疏散人数（万）'] = str(round(float(tag_val.split()[0].replace(',',''))/10000,2))
-                elif tag_val != None:
-                    node[tag_key] = tag_val
+            # Begin iterating over subtags
+            node = process_subtags(element, node)
+            
         for tag in element.iter("nd"):
             if not "node_refs" in node.keys():
                 node["node_refs"] = []
@@ -95,6 +45,80 @@ def shape_element(element):
     else:
         return None
 
+def process_toptags(key, val, node):
+    """
+    Takes a key-value pair and add store them according to different situation:
+    CREATED list, coordinates, or others.
+    """
+    # If key in CREATED list, store key-val under "created"
+    if key in CREATED:
+        if not "created" in node.keys():
+            node["created"] = {}
+        node["created"][key] = val
+        
+    # Fetch coordinates 
+    elif key == "lat" or key == "lon":
+        if not "pos" in node.keys():
+            node["pos"] = [0.0, 0.0]
+        old_pos = node["pos"]
+        if key == "lat":
+            new_pos = [float(val), old_pos[1]]
+        else:
+            new_pos = [old_pos[0], float(val)]
+        node["pos"] = new_pos
+    else:
+        node[key] = val
+        
+    return node
+
+def process_subtags(element, node):
+    """
+    Iterating over subtags and store key and fixed value to node dict. 
+    """
+    
+    for tag in element.iter("tag"):
+        tag_key = tag.attrib['k']
+        tag_val = tag.attrib['v']
+        
+        # Check for problem characters
+        if problemchars.match(tag_key):
+            continue
+        
+        # fix tag 'v' attribute of streetname and postcode
+        elif tag_key.startswith("addr:"):
+            if not "address" in node.keys():
+                node["address"] = {}
+            addr_key = tag.attrib['k'][len("addr:") : ]
+            if lower_colon.match(addr_key):
+                continue
+            else:
+                if tag.attrib['k'] == "addr:street":
+                    fixed_v, change = correct_street_type(tag_val)
+                elif tag.attrib['k'] == "addr:postcode":
+                    fixed_v, change = correct_postcode(tag.attrib['v'])
+                else:
+                    fixed_v = tag_val
+                if fixed_v != None:
+                    node["address"][addr_key] = fixed_v
+        
+        # fix fax and phone number
+        elif tag_key == "fax" or tag_key == "phone":
+            fixed_v, chang = correct_number(tag_val)
+            node[tag_key] = fixed_v
+            
+        #fix multiple tag_key confusing. These two tag_key in the list have same meaing, 
+        #so just keep the latter one in the list and change the former to the latter
+        elif tag_key in [ u'应急避难场所疏散人数万人',u'应急避难场所疏散人口万人']:
+            node[u'应急避难场所疏散人口万人'] = tag_val
+            
+        # '疏散人数' and '疏散人数（万）' are two similar tag_key. Inthis way below, we change '疏散人数' to '疏散人数（万）'
+        # by doing some math.
+        elif tag_key == u'疏散人数':
+            node[u'疏散人数（万）'] = str(round(float(tag_val.split()[0].replace(',',''))/10000,2))
+        elif tag_val != None:
+            node[tag_key] = tag_val
+            
+    return node
 
 def process_map(file_in, pretty = False):
     # You do not need to change this file
